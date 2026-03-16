@@ -23,7 +23,6 @@ cat README.md | ./better-glow
 ```
 
 When run with no file argument in a terminal, `better-glow` opens a file selector for `.md` files in the current directory.
-If you pass a directory (for example `./better-glow docs/`), it opens the selector for that directory.
 
 Selector keys:
 
@@ -47,7 +46,6 @@ Selector keys:
 - `g`: top
 - `G`: bottom
 - `q`: quit
-- Click a header in the left panel to jump to it
 
 ## Install (optional)
 
