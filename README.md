@@ -41,3 +41,7 @@ install -m 755 better-glow ~/.local/bin/better-glow
 ```
 
 Make sure `~/.local/bin` is in your `PATH`.
+
+## Tip
+
+If you want this command globally, install it to `~/.local/bin` and ensure that directory is in your `PATH`.
