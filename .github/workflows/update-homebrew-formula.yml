@@ -83,6 +83,11 @@ jobs:
       - name: Set up Homebrew
         uses: Homebrew/actions/setup-homebrew@master
 
+      - name: Configure git identity for tap creation
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
       - name: Update formula source metadata
         run: |
           perl -i -pe "s|^  homepage \".*\"|  homepage \"https://github.com/${{ github.repository }}\"|" Formula/mkdreader.rb
@@ -131,6 +136,11 @@ jobs:
 
       - name: Set up Homebrew
         uses: Homebrew/actions/setup-homebrew@master
+
+      - name: Configure git identity for tap creation
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
       - name: Download bottle artifacts
         uses: actions/download-artifact@v4
