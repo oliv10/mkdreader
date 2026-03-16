@@ -1,0 +1,70 @@
+name: Update Homebrew Formula
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release tag to publish (for example v0.1.0)"
+        required: true
+        type: string
+  release:
+    types: [published]
+
+jobs:
+  update-formula:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Resolve version
+        id: resolve
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            version="${{ github.event.release.tag_name }}"
+          else
+            version="${{ inputs.version }}"
+          fi
+          if ! printf '%s' "$version" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+([.-].+)?$'; then
+            echo "Version must look like v0.1.0"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Calculate tarball SHA256 and update formula
+        id: formula
+        run: |
+          version="${{ steps.resolve.outputs.version }}"
+          archive_url="https://github.com/${{ github.repository }}/archive/refs/tags/${version}.tar.gz"
+          tmpfile="$(mktemp)"
+
+          curl -fsSL "$archive_url" -o "$tmpfile"
+          sha="$(sha256sum "$tmpfile" | awk '{print $1}')"
+          rm -f "$tmpfile"
+
+          sed -i "s|^  homepage \".*\"|  homepage \"https://github.com/${{ github.repository }}\"|" Formula/mkdreader.rb
+          sed -i "s|^  url \".*\"|  url \"$archive_url\"|" Formula/mkdreader.rb
+          sed -i "s|^  sha256 \".*\"|  sha256 \"$sha\"|" Formula/mkdreader.rb
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "archive_url=$archive_url" >> "$GITHUB_OUTPUT"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+      - name: Create pull request with formula update
+        uses: peter-evans/create-pull-request@v6
+        with:
+          commit-message: "chore(formula): update Homebrew formula for ${{ steps.formula.outputs.version }}"
+          branch: "ci/update-formula-${{ steps.formula.outputs.version }}"
+          delete-branch: true
+          title: "chore(formula): update Homebrew formula for ${{ steps.formula.outputs.version }}"
+          body: |
+            Automated Homebrew formula update.
+
+            - Version: `${{ steps.formula.outputs.version }}`
+            - Tarball: `${{ steps.formula.outputs.archive_url }}`
+            - SHA256: `${{ steps.formula.outputs.sha }}`
+          add-paths: |
+            Formula/mkdreader.rb

@@ -88,6 +88,32 @@ brew tap oliv10/mkdreader
 brew install mkdreader
 ```
 
+### Automate Formula Updates (GitHub Actions)
+
+This repo includes a workflow at `.github/workflows/update-homebrew-formula.yml` that:
+
+- takes a tag (for example `v0.1.0`) from a manual run, or from a published GitHub release
+- downloads the release tarball
+- computes `sha256`
+- updates `Formula/mkdreader.rb`
+- opens a pull request with the formula change
+
+Requirements:
+
+- GitHub Actions enabled for the repo
+- Workflow permissions allowing `GITHUB_TOKEN` to read/write repository contents
+- The workflow job needs:
+  - `contents: write`
+  - `pull-requests: write`
+- A real release tag that exists on GitHub (for example `v0.1.0`)
+
+Manual run:
+
+1. Open `Actions` -> `Update Homebrew Formula`.
+2. Click `Run workflow`.
+3. Set `version` to a tag like `v0.1.0`.
+4. Merge the generated PR.
+
 ## Tip
 
 If you install globally, ensure `~/.local/bin` is in your `PATH`.
