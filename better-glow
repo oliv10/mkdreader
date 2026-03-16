@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if ! command -v glow >/dev/null 2>&1; then
+  echo "error: glow is required but not found in PATH" >&2
+  exit 1
+fi
+
+if ! command -v less >/dev/null 2>&1; then
+  echo "error: less is required but not found in PATH" >&2
+  exit 1
+fi
+
+if ! command -v lesskey >/dev/null 2>&1; then
+  echo "error: lesskey is required but not found in PATH" >&2
+  exit 1
+fi
+
+usage() {
+  cat <<'USAGE'
+Usage: better-glow [glow args...]
+
+A glow wrapper with micro-style movement keys.
+
+Keybinds:
+  Ctrl+N / j : next line
+  Ctrl+P / k : previous line
+  Ctrl+F     : next page
+  Ctrl+B     : previous page
+  Ctrl+D     : half-page down
+  Ctrl+U     : half-page up
+  g          : top
+  G          : bottom
+  q          : quit
+
+Everything after better-glow is passed to glow.
+Examples:
+  better-glow README.md
+  better-glow docs/*.md
+  cat README.md | better-glow
+USAGE
+}
+
+if [[ "${1-}" == "-h" || "${1-}" == "--help" ]]; then
+  usage
+  exit 0
+fi
+
+tmpdir="$(mktemp -d)"
+cleanup() {
+  rm -rf "$tmpdir"
+}
+trap cleanup EXIT
+
+keysrc="$tmpdir/micro.keys"
+keydb="$tmpdir/micro.lesskey"
+
+cat > "$keysrc" <<'KEYS'
+#command
+^N forw-line
+j forw-line
+^P back-line
+k back-line
+^F forw-screen
+^B back-screen
+^D forw-scroll
+^U back-scroll
+g goto-line
+G goto-end
+q quit
+KEYS
+
+lesskey -o "$keydb" "$keysrc" >/dev/null 2>&1
+
+# Render markdown with glow, then page using less with custom keymap.
+# -R keeps ANSI colors from glow.
+GLOW_STYLE="${GLOW_STYLE:-auto}"
+glow -p "$@" | less -R -k "$keydb" -Ps'better-glow (Ctrl+N/Ctrl+P move, q quit)'
