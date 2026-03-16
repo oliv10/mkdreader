@@ -113,7 +113,7 @@ jobs:
       - name: Collect bottle artifacts
         run: |
           mkdir -p bottle-artifacts
-          mv ./*.bottle.tar.gz bottle-artifacts/
+          mv ./*.bottle*.tar.gz bottle-artifacts/
           mv ./*.json bottle-artifacts/
 
       - name: Upload bottle artifacts
@@ -163,8 +163,10 @@ jobs:
               --generate-notes
           fi
 
+          ls -lah bottle-artifacts
+
           gh release upload "${{ needs.prepare.outputs.version }}" \
-            bottle-artifacts/*.bottle.tar.gz \
+            bottle-artifacts/*.bottle*.tar.gz \
             --repo "${{ github.repository }}" \
             --clobber
 
