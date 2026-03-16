@@ -5,7 +5,7 @@ class Mkdreader < Formula
   sha256 "REPLACE_WITH_RELEASE_TARBALL_SHA256"
   license "MIT"
 
-  depends_on "python@3.12"
+  depends_on "python@3.14"
   uses_from_macos "less"
   on_linux do
     depends_on "less"

@@ -60,59 +60,39 @@ This repo now includes a Homebrew formula at `Formula/mkdreader.rb` with depende
 - `python@3.12`
 - `less` (on Linux; uses system `less` on macOS)
 
-To publish it as a tap package:
+To publish and update the formula automatically:
 
-1. Push this project to GitHub (`oliv10/mkdreader`).
-2. Create a release tag from `main` (for example `v0.1.0`):
-
-```bash
-git checkout main
-git pull --ff-only
-git tag v0.1.0
-git push origin v0.1.0
-```
-
-3. Download the release tarball and compute SHA256:
-
-```bash
-curl -L -o mkdreader-v0.1.0.tar.gz \
-  https://github.com/oliv10/mkdreader/archive/refs/tags/v0.1.0.tar.gz
-shasum -a 256 mkdreader-v0.1.0.tar.gz
-```
-
-4. Update `homepage`, `url`, and `sha256` in `Formula/mkdreader.rb`.
-5. Put the formula in a tap repo (typically `homebrew-mkdreader`) and install:
+1. Open `Actions` -> `Publish Release and Update Homebrew Formula`.
+2. Click `Run workflow`.
+3. Set:
+   - `version` (for example `v0.1.0`)
+   - `target_branch` (`main`)
+4. The workflow will:
+   - create the GitHub release (if missing)
+   - compute tarball `sha256`
+   - open a PR updating `Formula/mkdreader.rb`
+   - request auto-merge for that PR
+5. Install:
 
 ```bash
 brew tap oliv10/mkdreader
 brew install mkdreader
 ```
 
-### Automate Formula Updates (GitHub Actions)
+### GitHub Repo Configuration (Required)
 
-This repo includes a workflow at `.github/workflows/update-homebrew-formula.yml` that:
+To run this without manual intervention beyond starting the workflow:
 
-- takes a tag (for example `v0.1.0`) from a manual run, or from a published GitHub release
-- downloads the release tarball
-- computes `sha256`
-- updates `Formula/mkdreader.rb`
-- opens a pull request with the formula change
+- In `Settings` -> `Actions` -> `General`:
+  - Set `Workflow permissions` to `Read and write permissions`.
+  - Enable `Allow GitHub Actions to create and approve pull requests`.
+- In `Settings` -> `General` (Pull Requests section):
+  - Enable `Allow auto-merge`.
+- If branch protection is enabled on `main`:
+  - Do not require PR reviews for this automation path when using `GITHUB_TOKEN`.
+  - Any required status checks must pass for auto-merge to complete.
 
-Requirements:
-
-- GitHub Actions enabled for the repo
-- Workflow permissions allowing `GITHUB_TOKEN` to read/write repository contents
-- The workflow job needs:
-  - `contents: write`
-  - `pull-requests: write`
-- A real release tag that exists on GitHub (for example `v0.1.0`)
-
-Manual run:
-
-1. Open `Actions` -> `Update Homebrew Formula`.
-2. Click `Run workflow`.
-3. Set `version` to a tag like `v0.1.0`.
-4. Merge the generated PR.
+If you must keep required reviews, use a separate bot account token with bypass permissions instead of `GITHUB_TOKEN`.
 
 ## Tip
 
