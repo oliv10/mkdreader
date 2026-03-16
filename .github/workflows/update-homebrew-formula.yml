@@ -163,6 +163,17 @@ jobs:
               --generate-notes
           fi
 
+          version_no_v="${{ needs.prepare.outputs.version }}"
+          version_no_v="${version_no_v#v}"
+
+          for f in bottle-artifacts/*.bottle*.tar.gz; do
+            tag="$(basename "$f" | grep -oE 'arm64_sonoma|arm64_linux|x86_64_linux' || true)"
+            if [ -n "$tag" ]; then
+              canonical="bottle-artifacts/mkdreader-${version_no_v}.${tag}.bottle.tar.gz"
+              cp "$f" "$canonical"
+            fi
+          done
+
           ls -lah bottle-artifacts
 
           gh release upload "${{ needs.prepare.outputs.version }}" \
