@@ -72,11 +72,27 @@ def render_markdown(text: str) -> str:
             level = len(h.group(1))
             title = h.group(2).strip()
             color = HEADING_COLORS[level]
-            if level <= 2:
+            if level == 1:
+                text = f"  {title.upper()}  "
+                border = "█" * max(12, min(80, len(text)))
+                out.append("")
+                out.append(style(border, color, BOLD))
+                out.append(style(text.center(len(border)), color, BOLD))
+                out.append(style(border, color, BOLD))
+                out.append("")
+            elif level == 2:
+                out.append("")
                 out.append(style(title, BOLD, color))
-                out.append(style("─" * max(10, min(80, len(title))), DIM))
+                out.append(style("═" * max(12, min(80, len(title) + 2)), color, BOLD))
+                out.append("")
+            elif level == 3:
+                out.append(style(f"▸ {title}", BOLD, color))
+            elif level == 4:
+                out.append(style(f"  • {title}", BOLD, color))
+            elif level == 5:
+                out.append(style(f"    - {title}", BOLD, color))
             else:
-                out.append(style(("  " * (level - 3)) + title, BOLD, color))
+                out.append(style(f"      {title}", BOLD, color))
             continue
 
         bq = re.match(r"^\s*>\s?(.*)$", line)
