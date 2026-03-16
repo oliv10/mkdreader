@@ -22,6 +22,19 @@ cat README.md | ./better-glow
 ./better-glow README.md --no-pager
 ```
 
+When run with no file argument in a terminal, `better-glow` opens a file selector for `.md` files in the current directory.
+
+Selector keys:
+
+- `Ctrl+N` / `j` / `Down`: next file
+- `Ctrl+P` / `k` / `Up`: previous file
+- `Ctrl+F`: page down
+- `Ctrl+B`: page up
+- `g`: top
+- `G`: bottom
+- `Enter`: open selected file
+- `q`: quit selector
+
 ## Keybinds (pager mode)
 
 - `Ctrl+N` or `j`: next line

@@ -2,9 +2,12 @@
 import argparse
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
+import termios
+import tty
 from pathlib import Path
 
 RESET = "\x1b[0m"
@@ -113,6 +116,97 @@ def read_inputs(paths: list[str]) -> str:
     return "\n\n".join(chunks)
 
 
+def read_key(fd: int) -> str:
+    ch = os.read(fd, 1).decode("utf-8", errors="ignore")
+    if ch != "\x1b":
+        return ch
+
+    seq = os.read(fd, 2).decode("utf-8", errors="ignore")
+    if seq == "[A":
+        return "UP"
+    if seq == "[B":
+        return "DOWN"
+    return ch
+
+
+def choose_markdown_file(cwd: Path) -> Path | None:
+    files = sorted(
+        [p for p in cwd.iterdir() if p.is_file() and p.suffix.lower() == ".md"],
+        key=lambda p: p.name.lower(),
+    )
+    if not files:
+        print("error: no .md files found in current directory", file=sys.stderr)
+        return None
+
+    if not (sys.stdin.isatty() and sys.stdout.isatty()):
+        return files[0]
+
+    fd = sys.stdin.fileno()
+    old_settings = termios.tcgetattr(fd)
+    index = 0
+    top = 0
+
+    try:
+        tty.setraw(fd)
+        while True:
+            rows = shutil.get_terminal_size((80, 24)).lines
+            header_lines = 3
+            footer_lines = 2
+            visible = max(5, rows - header_lines - footer_lines)
+
+            if index < top:
+                top = index
+            elif index >= top + visible:
+                top = index - visible + 1
+
+            sys.stdout.write("\x1b[2J\x1b[H")
+            sys.stdout.write(f"{BOLD}Select Markdown file{RESET} (Enter=open, q=quit)\n")
+            sys.stdout.write(f"{DIM}Current directory: {cwd}{RESET}\n\n")
+
+            end = min(len(files), top + visible)
+            for i in range(top, end):
+                marker = ">" if i == index else " "
+                name = files[i].name
+                if i == index:
+                    sys.stdout.write(style(f"{marker} {name}", BOLD, UNDERLINE) + "\n")
+                else:
+                    sys.stdout.write(f"{marker} {name}\n")
+
+            used_lines = header_lines + (end - top)
+            padding = max(0, rows - used_lines - footer_lines)
+            if padding:
+                sys.stdout.write("\n" * padding)
+            sys.stdout.write(
+                f"{DIM}Keys: Ctrl+N/j/down next | Ctrl+P/k/up prev | Ctrl+F page down | Ctrl+B page up{RESET}\n"
+            )
+            sys.stdout.write(
+                f"{DIM}      g top | G bottom | Enter open | q quit{RESET}\n"
+            )
+            sys.stdout.flush()
+
+            key = read_key(fd)
+            if key in ("\r", "\n"):
+                return files[index]
+            if key in ("q", "\x03"):
+                return None
+            if key in ("j", "\x0e", "DOWN"):
+                index = min(index + 1, len(files) - 1)
+            elif key in ("k", "\x10", "UP"):
+                index = max(index - 1, 0)
+            elif key == "\x06":
+                index = min(index + visible, len(files) - 1)
+            elif key == "\x02":
+                index = max(index - visible, 0)
+            elif key == "g":
+                index = 0
+            elif key == "G":
+                index = len(files) - 1
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+        sys.stdout.write("\x1b[2J\x1b[H")
+        sys.stdout.flush()
+
+
 def run_less(rendered: str) -> int:
     if not shutil_which("less") or not shutil_which("lesskey"):
         sys.stdout.write(rendered)
@@ -141,7 +235,13 @@ q quit
 
         subprocess.run(["lesskey", "-o", keydb, keysrc], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         proc = subprocess.run(
-            ["less", "-R", "-k", keydb, "-Psbetter-glow (Ctrl+N/Ctrl+P move, q quit)"],
+            [
+                "less",
+                "-R",
+                "-k",
+                keydb,
+                "-Psbetter-glow: Ctrl+N/P or j/k line, Ctrl+F/B page, Ctrl+D/U half, g/G, q quit",
+            ],
             input=rendered,
             text=True,
             check=False,
@@ -162,8 +262,15 @@ def main() -> int:
     parser.add_argument("--no-pager", action="store_true", help="Print rendered markdown directly")
     args = parser.parse_args()
 
+    paths = args.paths
+    if not paths and sys.stdin.isatty():
+        selected = choose_markdown_file(Path.cwd())
+        if selected is None:
+            return 0
+        paths = [str(selected)]
+
     try:
-        content = read_inputs(args.paths)
+        content = read_inputs(paths)
     except FileNotFoundError as e:
         print(f"error: {e}", file=sys.stderr)
         return 1
