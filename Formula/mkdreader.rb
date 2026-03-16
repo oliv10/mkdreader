@@ -12,8 +12,9 @@ class Mkdreader < Formula
   end
 
   def install
+    # Use a portable Python shebang for runtime across Homebrew environments.
+    inreplace "mkdreader", %r{^#!.*python[0-9.]*$}, "#!/usr/bin/env python3"
     bin.install "mkdreader"
-    rewrite_shebang detected_python_shebang, bin/"mkdreader"
   end
 
   test do
