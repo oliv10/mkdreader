@@ -62,13 +62,21 @@ This repo now includes a Homebrew formula at `Formula/mkdreader.rb` with depende
 
 To publish it as a tap package:
 
-1. Push this project to GitHub (for example `YOUR_GITHUB_USERNAME/mkdreader`).
-2. Create a release tag (for example `v0.1.0`).
+1. Push this project to GitHub (`oliv10/mkdreader`).
+2. Create a release tag from `main` (for example `v0.1.0`):
+
+```bash
+git checkout main
+git pull --ff-only
+git tag v0.1.0
+git push origin v0.1.0
+```
+
 3. Download the release tarball and compute SHA256:
 
 ```bash
 curl -L -o mkdreader-v0.1.0.tar.gz \
-  https://github.com/YOUR_GITHUB_USERNAME/mkdreader/archive/refs/tags/v0.1.0.tar.gz
+  https://github.com/oliv10/mkdreader/archive/refs/tags/v0.1.0.tar.gz
 shasum -a 256 mkdreader-v0.1.0.tar.gz
 ```
 
@@ -76,7 +84,7 @@ shasum -a 256 mkdreader-v0.1.0.tar.gz
 5. Put the formula in a tap repo (typically `homebrew-mkdreader`) and install:
 
 ```bash
-brew tap YOUR_GITHUB_USERNAME/mkdreader
+brew tap oliv10/mkdreader
 brew install mkdreader
 ```
 

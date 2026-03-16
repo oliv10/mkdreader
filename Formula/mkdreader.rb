@@ -1,7 +1,7 @@
 class Mkdreader < Formula
   desc "Standalone Markdown viewer with micro-like keybindings"
-  homepage "https://github.com/YOUR_GITHUB_USERNAME/mkdreader"
-  url "https://github.com/YOUR_GITHUB_USERNAME/mkdreader/archive/refs/tags/v0.1.0.tar.gz"
+  homepage "https://github.com/oliv10/mkdreader"
+  url "https://github.com/oliv10/mkdreader/archive/refs/tags/v0.1.0.tar.gz"
   sha256 "REPLACE_WITH_RELEASE_TARBALL_SHA256"
   license "MIT"
 
