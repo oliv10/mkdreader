@@ -1,28 +1,28 @@
 # better-glow
 
-`better-glow` is a tiny wrapper around [glow](https://github.com/charmbracelet/glow) that keeps glow's Markdown rendering and replaces paging keybinds with a micro-like set.
+`better-glow` is a standalone Markdown viewer with micro-like movement keys.
 
 ## Why
 
-`glow` renders Markdown nicely, but its interactive bindings may not match your muscle memory. This wrapper renders with `glow -p` and pages in `less` with a custom `lesskey` map.
+You wanted a `glow`-style Markdown reading experience without depending on `glow`, and with keybindings closer to `micro`.
 
 ## Requirements
 
-- `glow`
-- `less`
-- `lesskey`
+- Python 3.8+
+- Optional: `less` + `lesskey` (for interactive paging)
+
+If `less`/`lesskey` are unavailable, `better-glow` still works and prints rendered output directly.
 
 ## Usage
 
 ```bash
 ./better-glow README.md
-./better-glow docs/*.md
+./better-glow docs/
 cat README.md | ./better-glow
+./better-glow README.md --no-pager
 ```
 
-Everything after `better-glow` is forwarded to `glow`.
-
-## Keybinds
+## Keybinds (pager mode)
 
 - `Ctrl+N` or `j`: next line
 - `Ctrl+P` or `k`: previous line
@@ -40,8 +40,6 @@ Everything after `better-glow` is forwarded to `glow`.
 install -m 755 better-glow ~/.local/bin/better-glow
 ```
 
-Make sure `~/.local/bin` is in your `PATH`.
-
 ## Tip
 
-If you want this command globally, install it to `~/.local/bin` and ensure that directory is in your `PATH`.
+If you install globally, ensure `~/.local/bin` is in your `PATH`.

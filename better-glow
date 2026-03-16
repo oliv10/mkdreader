@@ -1,62 +1,130 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/usr/bin/env python3
+import argparse
+import os
+import re
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
 
-if ! command -v glow >/dev/null 2>&1; then
-  echo "error: glow is required but not found in PATH" >&2
-  exit 1
-fi
+RESET = "\x1b[0m"
+BOLD = "\x1b[1m"
+DIM = "\x1b[2m"
+ITALIC = "\x1b[3m"
+UNDERLINE = "\x1b[4m"
+CYAN = "\x1b[36m"
+YELLOW = "\x1b[33m"
+MAGENTA = "\x1b[35m"
+BLUE = "\x1b[34m"
+GREEN = "\x1b[32m"
 
-if ! command -v less >/dev/null 2>&1; then
-  echo "error: less is required but not found in PATH" >&2
-  exit 1
-fi
 
-if ! command -v lesskey >/dev/null 2>&1; then
-  echo "error: lesskey is required but not found in PATH" >&2
-  exit 1
-fi
-
-usage() {
-  cat <<'USAGE'
-Usage: better-glow [glow args...]
-
-A glow wrapper with micro-style movement keys.
-
-Keybinds:
-  Ctrl+N / j : next line
-  Ctrl+P / k : previous line
-  Ctrl+F     : next page
-  Ctrl+B     : previous page
-  Ctrl+D     : half-page down
-  Ctrl+U     : half-page up
-  g          : top
-  G          : bottom
-  q          : quit
-
-Everything after better-glow is passed to glow.
-Examples:
-  better-glow README.md
-  better-glow docs/*.md
-  cat README.md | better-glow
-USAGE
+HEADING_COLORS = {
+    1: MAGENTA,
+    2: BLUE,
+    3: GREEN,
+    4: CYAN,
+    5: YELLOW,
+    6: DIM,
 }
 
-if [[ "${1-}" == "-h" || "${1-}" == "--help" ]]; then
-  usage
-  exit 0
-fi
 
-tmpdir="$(mktemp -d)"
-cleanup() {
-  rm -rf "$tmpdir"
-}
-trap cleanup EXIT
+def style(text: str, *codes: str) -> str:
+    return "".join(codes) + text + RESET
 
-keysrc="$tmpdir/micro.keys"
-keydb="$tmpdir/micro.lesskey"
 
-cat > "$keysrc" <<'KEYS'
-#command
+def apply_inline(md: str) -> str:
+    md = re.sub(r"`([^`]+)`", lambda m: style(m.group(1), YELLOW), md)
+    md = re.sub(r"\*\*([^*]+)\*\*", lambda m: style(m.group(1), BOLD), md)
+    md = re.sub(r"\*([^*]+)\*", lambda m: style(m.group(1), ITALIC), md)
+    md = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", lambda m: f"{style(m.group(1), UNDERLINE)} {style('(' + m.group(2) + ')', DIM)}", md)
+    return md
+
+
+def render_markdown(text: str) -> str:
+    out = []
+    in_code = False
+
+    for raw in text.splitlines():
+        line = raw.rstrip("\n")
+
+        if line.strip().startswith("```"):
+            in_code = not in_code
+            if in_code:
+                out.append(style("--- code ---", DIM))
+            else:
+                out.append(style("--- end code ---", DIM))
+            continue
+
+        if in_code:
+            out.append(style("  " + line, CYAN))
+            continue
+
+        if re.match(r"^\s*([-*_])\1\1+\s*$", line):
+            out.append(style("─" * 60, DIM))
+            continue
+
+        h = re.match(r"^(#{1,6})\s+(.*)$", line)
+        if h:
+            level = len(h.group(1))
+            title = h.group(2).strip()
+            color = HEADING_COLORS[level]
+            if level <= 2:
+                out.append(style(title, BOLD, color))
+                out.append(style("─" * max(10, min(80, len(title))), DIM))
+            else:
+                out.append(style(("  " * (level - 3)) + title, BOLD, color))
+            continue
+
+        bq = re.match(r"^\s*>\s?(.*)$", line)
+        if bq:
+            out.append(style("│ " + apply_inline(bq.group(1)), DIM))
+            continue
+
+        li = re.match(r"^(\s*)([-*+]|\d+\.)\s+(.*)$", line)
+        if li:
+            indent = li.group(1).replace("\t", "    ")
+            bullet = li.group(2)
+            body = apply_inline(li.group(3))
+            out.append(f"{indent}{style('•' if bullet in '-*+' else bullet, BOLD)} {body}")
+            continue
+
+        out.append(apply_inline(line))
+
+    return "\n".join(out) + "\n"
+
+
+def read_inputs(paths: list[str]) -> str:
+    if not paths:
+        return sys.stdin.read()
+
+    chunks = []
+    for p in paths:
+        path = Path(p)
+        if not path.exists():
+            raise FileNotFoundError(f"file not found: {p}")
+        if path.is_dir():
+            md_files = sorted(path.rglob("*.md"))
+            for f in md_files:
+                chunks.append(f"# {f}\n\n" + f.read_text(encoding="utf-8", errors="replace"))
+            continue
+        chunks.append(path.read_text(encoding="utf-8", errors="replace"))
+
+    return "\n\n".join(chunks)
+
+
+def run_less(rendered: str) -> int:
+    if not shutil_which("less") or not shutil_which("lesskey"):
+        sys.stdout.write(rendered)
+        return 0
+
+    with tempfile.TemporaryDirectory() as td:
+        keysrc = os.path.join(td, "micro.keys")
+        keydb = os.path.join(td, "micro.lesskey")
+
+        with open(keysrc, "w", encoding="utf-8") as fh:
+            fh.write(
+                """#command
 ^N forw-line
 j forw-line
 ^P back-line
@@ -68,11 +136,46 @@ k back-line
 g goto-line
 G goto-end
 q quit
-KEYS
+"""
+            )
 
-lesskey -o "$keydb" "$keysrc" >/dev/null 2>&1
+        subprocess.run(["lesskey", "-o", keydb, keysrc], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        proc = subprocess.run(
+            ["less", "-R", "-k", keydb, "-Psbetter-glow (Ctrl+N/Ctrl+P move, q quit)"],
+            input=rendered,
+            text=True,
+            check=False,
+        )
+        return proc.returncode
 
-# Render markdown with glow, then page using less with custom keymap.
-# -R keeps ANSI colors from glow.
-GLOW_STYLE="${GLOW_STYLE:-auto}"
-glow -p "$@" | less -R -k "$keydb" -Ps'better-glow (Ctrl+N/Ctrl+P move, q quit)'
+
+def shutil_which(name: str) -> bool:
+    for p in os.environ.get("PATH", "").split(os.pathsep):
+        if p and os.path.exists(os.path.join(p, name)):
+            return True
+    return False
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Standalone markdown viewer with micro-like keybinds")
+    parser.add_argument("paths", nargs="*", help="Markdown files or directories")
+    parser.add_argument("--no-pager", action="store_true", help="Print rendered markdown directly")
+    args = parser.parse_args()
+
+    try:
+        content = read_inputs(args.paths)
+    except FileNotFoundError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 1
+
+    rendered = render_markdown(content)
+
+    if args.no_pager or not sys.stdout.isatty():
+        sys.stdout.write(rendered)
+        return 0
+
+    return run_less(rendered)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
