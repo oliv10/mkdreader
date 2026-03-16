@@ -22,7 +22,7 @@ cat README.md | ./better-glow
 ./better-glow README.md --no-pager
 ```
 
-When run with no file argument in a terminal, `better-glow` opens a file selector for `.md` files in the current directory.
+When run with no file argument in a terminal, `better-glow` opens a file selector for `.md` files in the current directory. If you pass a directory (for example `./better-glow docs/`), it opens the selector for that directory.
 
 Selector keys:
 

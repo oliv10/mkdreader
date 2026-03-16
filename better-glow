@@ -268,6 +268,11 @@ def main() -> int:
         if selected is None:
             return 0
         paths = [str(selected)]
+    elif len(paths) == 1 and Path(paths[0]).is_dir() and sys.stdin.isatty():
+        selected = choose_markdown_file(Path(paths[0]))
+        if selected is None:
+            return 0
+        paths = [str(selected)]
 
     try:
         content = read_inputs(paths)
