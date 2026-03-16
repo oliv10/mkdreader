@@ -62,21 +62,23 @@ This repo now includes a Homebrew formula at `Formula/mkdreader.rb` with depende
 
 To publish and update the formula automatically:
 
-1. Open `Actions` -> `Publish Release and Update Homebrew Formula`.
+1. Open `Actions` -> `Publish Release and Homebrew Bottles`.
 2. Click `Run workflow`.
 3. Set:
    - `version` (for example `v0.1.0`)
    - `target_branch` (`main`)
 4. The workflow will:
    - create the GitHub release (if missing)
-   - compute tarball `sha256`
-   - open a PR updating `Formula/mkdreader.rb`
+   - build Linux and macOS bottles
+   - upload those bottles to the GitHub release
+   - compute source tarball `sha256`
+   - open a PR updating `Formula/mkdreader.rb` with source + bottle metadata
    - request auto-merge for that PR
-5. Install:
+5. Install without local build:
 
 ```bash
 brew tap oliv10/mkdreader
-brew install mkdreader
+brew install --force-bottle oliv10/mkdreader/mkdreader
 ```
 
 ### GitHub Repo Configuration (Required)
@@ -91,6 +93,8 @@ To run this without manual intervention beyond starting the workflow:
 - If branch protection is enabled on `main`:
   - Do not require PR reviews for this automation path when using `GITHUB_TOKEN`.
   - Any required status checks must pass for auto-merge to complete.
+- If your repository is private and you install from another machine:
+  - Ensure that machine has access to release assets and tap repo over SSH.
 
 If you must keep required reviews, use a separate bot account token with bypass permissions instead of `GITHUB_TOKEN`.
 

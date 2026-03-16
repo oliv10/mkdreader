@@ -1,4 +1,4 @@
-name: Publish Release and Update Homebrew Formula
+name: Publish Release and Homebrew Bottles
 
 on:
   workflow_dispatch:
@@ -14,11 +14,15 @@ on:
         type: string
 
 jobs:
-  publish-and-update-formula:
+  prepare:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      pull-requests: write
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      root_url: ${{ steps.meta.outputs.root_url }}
+      archive_url: ${{ steps.meta.outputs.archive_url }}
+      source_sha: ${{ steps.meta.outputs.source_sha }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -26,22 +30,18 @@ jobs:
           ref: ${{ inputs.target_branch }}
           fetch-depth: 0
 
-      - name: Validate input version
-        id: version
+      - name: Validate version and create release if missing
+        id: meta
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           version="${{ inputs.version }}"
+          target_branch="${{ inputs.target_branch }}"
+
           if ! printf '%s' "$version" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+([.-].+)?$'; then
             echo "Version must look like v0.1.0"
             exit 1
           fi
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-
-      - name: Create release if missing
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          version="${{ steps.version.outputs.version }}"
-          target_branch="${{ inputs.target_branch }}"
 
           if gh release view "$version" --repo "${{ github.repository }}" >/dev/null 2>&1; then
             echo "Release $version already exists."
@@ -53,40 +53,118 @@ jobs:
               --generate-notes
           fi
 
-      - name: Calculate tarball SHA256 and update formula
-        id: formula
-        run: |
-          version="${{ steps.version.outputs.version }}"
           archive_url="https://github.com/${{ github.repository }}/archive/refs/tags/${version}.tar.gz"
+          root_url="https://github.com/${{ github.repository }}/releases/download/${version}"
           tmpfile="$(mktemp)"
 
           curl -fsSL "$archive_url" -o "$tmpfile"
-          sha="$(sha256sum "$tmpfile" | awk '{print $1}')"
+          source_sha="$(sha256sum "$tmpfile" | awk '{print $1}')"
           rm -f "$tmpfile"
 
-          sed -i "s|^  homepage \".*\"|  homepage \"https://github.com/${{ github.repository }}\"|" Formula/mkdreader.rb
-          sed -i "s|^  url \".*\"|  url \"$archive_url\"|" Formula/mkdreader.rb
-          sed -i "s|^  sha256 \".*\"|  sha256 \"$sha\"|" Formula/mkdreader.rb
-
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "root_url=$root_url" >> "$GITHUB_OUTPUT"
           echo "archive_url=$archive_url" >> "$GITHUB_OUTPUT"
-          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "source_sha=$source_sha" >> "$GITHUB_OUTPUT"
+
+  build-bottles:
+    needs: prepare
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, macos-14]
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.target_branch }}
+
+      - name: Set up Homebrew
+        uses: Homebrew/actions/setup-homebrew@master
+
+      - name: Update formula source metadata
+        run: |
+          perl -i -pe "s|^  homepage \".*\"|  homepage \"https://github.com/${{ github.repository }}\"|" Formula/mkdreader.rb
+          perl -i -pe "s|^  url \".*\"|  url \"${{ needs.prepare.outputs.archive_url }}\"|" Formula/mkdreader.rb
+          perl -i -pe "s|^  sha256 \".*\"|  sha256 \"${{ needs.prepare.outputs.source_sha }}\"|" Formula/mkdreader.rb
+
+      - name: Build bottle
+        run: |
+          brew install --build-bottle ./Formula/mkdreader.rb
+          brew bottle --json --root-url="${{ needs.prepare.outputs.root_url }}" mkdreader
+
+      - name: Collect bottle artifacts
+        run: |
+          mkdir -p bottle-artifacts
+          mv ./*.bottle.tar.gz bottle-artifacts/
+          mv ./*.json bottle-artifacts/
+
+      - name: Upload bottle artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: bottles-${{ matrix.os }}
+          path: bottle-artifacts/*
+
+  publish-formula-pr:
+    needs: [prepare, build-bottles]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.target_branch }}
+
+      - name: Set up Homebrew
+        uses: Homebrew/actions/setup-homebrew@master
+
+      - name: Download bottle artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: bottles-*
+          merge-multiple: true
+          path: bottle-artifacts
+
+      - name: Upload bottles to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "${{ needs.prepare.outputs.version }}" \
+            bottle-artifacts/*.bottle.tar.gz \
+            --repo "${{ github.repository }}" \
+            --clobber
+
+      - name: Update formula source metadata
+        run: |
+          perl -i -pe "s|^  homepage \".*\"|  homepage \"https://github.com/${{ github.repository }}\"|" Formula/mkdreader.rb
+          perl -i -pe "s|^  url \".*\"|  url \"${{ needs.prepare.outputs.archive_url }}\"|" Formula/mkdreader.rb
+          perl -i -pe "s|^  sha256 \".*\"|  sha256 \"${{ needs.prepare.outputs.source_sha }}\"|" Formula/mkdreader.rb
+
+      - name: Merge bottle metadata into formula
+        run: |
+          brew bottle --merge --write --no-commit \
+            --root-url="${{ needs.prepare.outputs.root_url }}" \
+            bottle-artifacts/*.json
 
       - name: Create formula PR
         id: cpr
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ github.token }}
-          commit-message: "chore(formula): update Homebrew formula for ${{ steps.version.outputs.version }}"
-          branch: "ci/update-formula-${{ steps.version.outputs.version }}"
+          commit-message: "chore(formula): update source+bottles for ${{ needs.prepare.outputs.version }}"
+          branch: "ci/update-formula-${{ needs.prepare.outputs.version }}"
           base: ${{ inputs.target_branch }}
           delete-branch: true
-          title: "chore(formula): update Homebrew formula for ${{ steps.version.outputs.version }}"
+          title: "chore(formula): update Homebrew formula for ${{ needs.prepare.outputs.version }}"
           body: |
             Automated Homebrew formula update.
 
-            - Version: `${{ steps.version.outputs.version }}`
-            - Tarball: `${{ steps.formula.outputs.archive_url }}`
-            - SHA256: `${{ steps.formula.outputs.sha }}`
+            - Version: `${{ needs.prepare.outputs.version }}`
+            - Source: `${{ needs.prepare.outputs.archive_url }}`
+            - Source SHA256: `${{ needs.prepare.outputs.source_sha }}`
+            - Bottles uploaded to: `${{ needs.prepare.outputs.root_url }}`
           add-paths: |
             Formula/mkdreader.rb
 
@@ -101,11 +179,3 @@ jobs:
             --delete-branch \
             --auto \
             "${{ steps.cpr.outputs.pull-request-number }}"
-
-      - name: Workflow summary
-        run: |
-          if [ -n "${{ steps.cpr.outputs.pull-request-number }}" ]; then
-            echo "PR #${{ steps.cpr.outputs.pull-request-number }} created/updated and auto-merge requested."
-          else
-            echo "No formula changes were needed."
-          fi
