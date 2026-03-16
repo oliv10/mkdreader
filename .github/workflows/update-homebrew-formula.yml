@@ -30,7 +30,7 @@ jobs:
           ref: ${{ inputs.target_branch }}
           fetch-depth: 0
 
-      - name: Validate version and create release if missing
+      - name: Validate version and ensure tag exists
         id: meta
         env:
           GH_TOKEN: ${{ github.token }}
@@ -43,14 +43,15 @@ jobs:
             exit 1
           fi
 
-          if gh release view "$version" --repo "${{ github.repository }}" >/dev/null 2>&1; then
-            echo "Release $version already exists."
+          if git ls-remote --tags origin "refs/tags/$version" | grep -q "refs/tags/$version"; then
+            echo "Tag $version already exists."
           else
-            gh release create "$version" \
-              --repo "${{ github.repository }}" \
-              --target "$target_branch" \
-              --title "$version" \
-              --generate-notes
+            sha="$(gh api "repos/${{ github.repository }}/commits/$target_branch" -q .sha)"
+            gh api "repos/${{ github.repository }}/git/refs" \
+              --method POST \
+              -f ref="refs/tags/$version" \
+              -f sha="$sha" >/dev/null
+            echo "Created tag $version at $sha."
           fi
 
           archive_url="https://github.com/${{ github.repository }}/archive/refs/tags/${version}.tar.gz"
@@ -88,10 +89,21 @@ jobs:
           perl -i -pe "s|^  url \".*\"|  url \"${{ needs.prepare.outputs.archive_url }}\"|" Formula/mkdreader.rb
           perl -i -pe "s|^  sha256 \".*\"|  sha256 \"${{ needs.prepare.outputs.source_sha }}\"|" Formula/mkdreader.rb
 
+      - name: Create temporary tap and stage formula
+        run: |
+          tap_name="${{ github.repository_owner }}/mkdreader"
+          if ! brew tap | grep -qx "$tap_name"; then
+            brew tap-new "$tap_name"
+          fi
+          tap_dir="$(brew --repository)/Library/Taps/${{ github.repository_owner }}/homebrew-mkdreader"
+          mkdir -p "$tap_dir/Formula"
+          cp Formula/mkdreader.rb "$tap_dir/Formula/mkdreader.rb"
+
       - name: Build bottle
         run: |
-          brew install --build-bottle ./Formula/mkdreader.rb
-          brew bottle --json --root-url="${{ needs.prepare.outputs.root_url }}" mkdreader
+          formula_ref="${{ github.repository_owner }}/mkdreader/mkdreader"
+          brew install --build-bottle "$formula_ref"
+          brew bottle --json --root-url="${{ needs.prepare.outputs.root_url }}" "$formula_ref"
 
       - name: Collect bottle artifacts
         run: |
@@ -131,6 +143,16 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          if gh release view "${{ needs.prepare.outputs.version }}" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            echo "Release ${{ needs.prepare.outputs.version }} already exists."
+          else
+            gh release create "${{ needs.prepare.outputs.version }}" \
+              --repo "${{ github.repository }}" \
+              --target "${{ inputs.target_branch }}" \
+              --title "${{ needs.prepare.outputs.version }}" \
+              --generate-notes
+          fi
+
           gh release upload "${{ needs.prepare.outputs.version }}" \
             bottle-artifacts/*.bottle.tar.gz \
             --repo "${{ github.repository }}" \
@@ -142,11 +164,23 @@ jobs:
           perl -i -pe "s|^  url \".*\"|  url \"${{ needs.prepare.outputs.archive_url }}\"|" Formula/mkdreader.rb
           perl -i -pe "s|^  sha256 \".*\"|  sha256 \"${{ needs.prepare.outputs.source_sha }}\"|" Formula/mkdreader.rb
 
+      - name: Create temporary tap and stage formula
+        run: |
+          tap_name="${{ github.repository_owner }}/mkdreader"
+          if ! brew tap | grep -qx "$tap_name"; then
+            brew tap-new "$tap_name"
+          fi
+          tap_dir="$(brew --repository)/Library/Taps/${{ github.repository_owner }}/homebrew-mkdreader"
+          mkdir -p "$tap_dir/Formula"
+          cp Formula/mkdreader.rb "$tap_dir/Formula/mkdreader.rb"
+
       - name: Merge bottle metadata into formula
         run: |
+          tap_dir="$(brew --repository)/Library/Taps/${{ github.repository_owner }}/homebrew-mkdreader"
           brew bottle --merge --write --no-commit \
             --root-url="${{ needs.prepare.outputs.root_url }}" \
             bottle-artifacts/*.json
+          cp "$tap_dir/Formula/mkdreader.rb" Formula/mkdreader.rb
 
       - name: Create formula PR
         id: cpr
