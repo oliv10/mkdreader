@@ -256,7 +256,7 @@ q quit
                 "-R",
                 "-k",
                 keydb,
-                "-Psbetter-glow: Ctrl+N/P or j/k line, Ctrl+F/B page, Ctrl+D/U half, g/G, q quit",
+                "-Psmkdreader: Ctrl+N/P or j/k line, Ctrl+F/B page, Ctrl+D/U half, g/G, q quit",
             ],
             input=rendered,
             text=True,

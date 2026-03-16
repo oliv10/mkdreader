@@ -1,6 +1,6 @@
-# better-glow
+# mkdreader
 
-`better-glow` is a standalone Markdown viewer with micro-like movement keys.
+`mkdreader` is a standalone Markdown viewer with micro-like movement keys.
 
 ## Why
 
@@ -11,18 +11,18 @@ You wanted a `glow`-style Markdown reading experience without depending on `glow
 - Python 3.8+
 - Optional: `less` + `lesskey` (for interactive paging)
 
-If `less`/`lesskey` are unavailable, `better-glow` still works and prints rendered output directly.
+If `less`/`lesskey` are unavailable, `mkdreader` still works and prints rendered output directly.
 
 ## Usage
 
 ```bash
-./better-glow README.md
-./better-glow docs/
-cat README.md | ./better-glow
-./better-glow README.md --no-pager
+./mkdreader README.md
+./mkdreader docs/
+cat README.md | ./mkdreader
+./mkdreader README.md --no-pager
 ```
 
-When run with no file argument in a terminal, `better-glow` opens a file selector for `.md` files in the current directory. If you pass a directory (for example `./better-glow docs/`), it opens the selector for that directory.
+When run with no file argument in a terminal, `mkdreader` opens a file selector for `.md` files in the current directory. If you pass a directory (for example `./mkdreader docs/`), it opens the selector for that directory.
 
 Selector keys:
 
@@ -50,7 +50,7 @@ Selector keys:
 ## Install (optional)
 
 ```bash
-install -m 755 better-glow ~/.local/bin/better-glow
+install -m 755 mkdreader ~/.local/bin/mkdreader
 ```
 
 ## Tip
