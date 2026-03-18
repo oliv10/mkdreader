@@ -1,15 +1,15 @@
 class Mkdreader < Formula
   desc "Standalone Markdown viewer with micro-like keybindings"
   homepage "https://github.com/oliv10/mkdreader"
-  url "https://github.com/oliv10/mkdreader/archive/refs/tags/v0.1.6.tar.gz"
-  sha256 "97cd5105a05f40d25b0e7f35a089acd4de94bad7be22a96705c533145dd8a90a"
+  url "https://github.com/oliv10/mkdreader/archive/refs/tags/v0.1.7.tar.gz"
+  sha256 "e398885d01c29f44695062f0c72bcba69fb6c5717b06ba5852f35615964002e3"
   license "MIT"
 
   bottle do
-    root_url "https://github.com/oliv10/mkdreader/releases/download/v0.1.6"
-    sha256 cellar: :any_skip_relocation, arm64_sonoma: "2411e08478253ccd3618823306d3f04f21f12c59e361b109b83e22d8eda31c71"
-    sha256 cellar: :any_skip_relocation, arm64_linux:  "9f97bca1068afe161caeed7d1441badafa74c1d22b7e764c5b45d96c9da5d9bc"
-    sha256 cellar: :any_skip_relocation, x86_64_linux: "e0c715a1726fb47155ea1531bd348713b2b47f1b616bf2f1ec09038d861bc607"
+    root_url "https://github.com/oliv10/mkdreader/releases/download/v0.1.7"
+    sha256 cellar: :any_skip_relocation, arm64_sonoma: "756f2e0158879e3eb4265a06929b5152027cb8dcfba7e4805575e2da65efb4cf"
+    sha256 cellar: :any_skip_relocation, arm64_linux:  "c1fd5ee2a9cd9f8554c92fb6f6462d1c237da71f9e9ffaf06cb23ef290893197"
+    sha256 cellar: :any_skip_relocation, x86_64_linux: "c220c737e35695ed06e09a3dd3ebd297b11ab267b0f9d6f45d3963acbfaecaff"
   end
 
   depends_on "python@3.14"
