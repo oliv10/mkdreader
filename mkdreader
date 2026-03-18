@@ -164,6 +164,7 @@ def choose_markdown_file(cwd: Path) -> Path | None:
 
     try:
         tty.setraw(fd)
+        eol = "\r\n"
         while True:
             rows = shutil.get_terminal_size((80, 24)).lines
             header_lines = 3
@@ -176,27 +177,27 @@ def choose_markdown_file(cwd: Path) -> Path | None:
                 top = index - visible + 1
 
             sys.stdout.write("\x1b[2J\x1b[H")
-            sys.stdout.write(f"{BOLD}Select Markdown file{RESET} (Enter=open, q=quit)\n")
-            sys.stdout.write(f"{DIM}Current directory: {cwd}{RESET}\n\n")
+            sys.stdout.write(f"{BOLD}Select Markdown file{RESET} (Enter=open, q=quit){eol}")
+            sys.stdout.write(f"{DIM}Current directory: {cwd}{RESET}{eol}{eol}")
 
             end = min(len(files), top + visible)
             for i in range(top, end):
                 marker = ">" if i == index else " "
                 name = files[i].name
                 if i == index:
-                    sys.stdout.write(style(f"{marker} {name}", BOLD, UNDERLINE) + "\n")
+                    sys.stdout.write(style(f"{marker} {name}", BOLD, UNDERLINE) + eol)
                 else:
-                    sys.stdout.write(f"{marker} {name}\n")
+                    sys.stdout.write(f"{marker} {name}{eol}")
 
             used_lines = header_lines + (end - top)
             padding = max(0, rows - used_lines - footer_lines)
             if padding:
-                sys.stdout.write("\n" * padding)
+                sys.stdout.write(eol * padding)
             sys.stdout.write(
-                f"{DIM}Keys: Ctrl+N/j/down next | Ctrl+P/k/up prev | Ctrl+F page down | Ctrl+B page up{RESET}\n"
+                f"{DIM}Keys: Ctrl+N/j/down next | Ctrl+P/k/up prev | Ctrl+F page down | Ctrl+B page up{RESET}{eol}"
             )
             sys.stdout.write(
-                f"{DIM}      g top | G bottom | Enter open | q quit{RESET}\n"
+                f"{DIM}      g top | G bottom | Enter open | q quit{RESET}{eol}"
             )
             sys.stdout.flush()
 
